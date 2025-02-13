@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wallet App</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 2rem;
+    }
+    .form-container {
+      margin: 2rem auto;
+      width: 300px;
+      padding: 1rem;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      background-color: #f9f9f9;
+    }
+    input[type="text"], input[type="password"], input[type="email"] {
+      width: 100%;
+      padding: 8px;
+      margin: 8px 0;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    button {
+      background-color: #28a745;
+      color: white;
+      padding: 10px 15px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #218838;
+    }
+    .link {
+      display: block;
+      margin-top: 10px;
+      color: blue;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h1>Welcome to the Wallet App</h1>
+  <div id="homepage">
+    <button id="login" onclick="showLoginForm()">Login</button>
+    <button id="login" onclick="showRegisterForm()">Register</button>
+  </div>
+
+  <div id="loginForm" class="form-container" style="display: none;">
+    <h2>Login</h2>
+    <input type="text" id="loginUsername" placeholder="Username" required>
+    <input type="password" id="loginPassword" placeholder="Password" required>
+    <button onclick="loginUser()">Login</button>
+  </div>
+
+  <div id="registerForm" class="form-container" style="display: none;">
+    <h2>Register</h2>
+    <input type="text" id="registerUsername" placeholder="Username" required>
+    <input type="password" id="registerPassword" placeholder="Password" required>
+    <input type="email" id="registerEmail" placeholder="Email" required>
+    <button onclick="registerUser()">Register</button>
+  </div>
+
+  <!-- Existing content for the wallet app -->
+  <div id="editBalanceContainer" class="form-container" style="display: none;">
+    <h2>Edit User Balance</h2>
+    <input type="text" id="editUsername" placeholder="Username" required>
+    <input type="number" id="newBalance" placeholder="New Balance" required>
+    <button onclick="updateBalance()">Update Balance</button>
+    <p id="editMessage"></p>
+  </div>
+
+  <script>
+    const apiBaseUrl = "http://198.45.114.194:5000";
+
+    function showLoginForm() {
+      document.getElementById('homepage').style.display = 'none';
+      document.getElementById('loginForm').style.display = 'block';
+    }
+
+    function showRegisterForm() {
+      document.getElementById('homepage').style.display = 'none';
+      document.getElementById('registerForm').style.display = 'block';
+    }
+
+    async function registerUser() {
+      const username = document.getElementById("registerUsername").value;
+      const password = document.getElementById("registerPassword").value;
+      const email = document.getElementById("registerEmail").value;
+
+      const response = await fetch(`${apiBaseUrl}/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password, email })
+      });
+      const result = await response.json();
+      alert(result.message || result.error);
+    }
+
+    async function loginUser() {
+      const username = document.getElementById("loginUsername").value;
+      const password = document.getElementById("loginPassword").value;
+
+      const response = await fetch(`${apiBaseUrl}/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      const result = await response.json();
+      
+      if (response.ok) {
+        alert(`Login successful! Admin: ${result.is_admin}`);
+        window.location.href = `${apiBaseUrl}/dashboard`; // Redirect to dashboard or appropriate page
+      } else {
+        alert(result.error);
+      }
+    }
+
+    async function updateBalance() {
+      const username = document.getElementById("editUsername").value;
+      const newBalance = document.getElementById("newBalance").value;
+
+      const response = await fetch(`${apiBaseUrl}/edit_balance`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, new_balance: newBalance })
+      });
+      const result = await response.json();
+      document.getElementById("editMessage").innerText = result.message || result.error;
+    }
+  </script>
+</body>
+</html>
