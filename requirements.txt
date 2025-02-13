@@ -1,0 +1,5 @@
+flaskf
+flask-bcrypt
+flask-cors
+qrcode
+pillow
