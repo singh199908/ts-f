@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - Wallet App</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 2rem;
+    }
+    h1 {
+      text-align: center;
+    }
+    .user-list, .user-info, .qr-scanner {
+      margin: 2rem 0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 2rem;
+    }
+    table, th, td {
+      border: 1px solid #ddd;
+    }
+    th, td {
+      padding: 8px;
+      text-align: left;
+    }
+    button {
+      background-color: #007bff;
+      color: white;
+      padding: 5px 10px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    .logout-button {
+      background-color: #dc3545;
+      color: white;
+      padding: 10px 15px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      text-align: center;
+    }
+    .logout-button:hover {
+      background-color: #c82333;
+    }
+    #qrCode {
+      margin-top: 20px;
+    }
+    video {
+      width: 100%;
+      max-width: 500px;
+      transform: scaleX(-1);
+    }
+  </style>
+</head>
+<body>
+  <h1>Welcome to the Wallet Dashboard</h1>
+  <button onclick="logout()">Logout</button>
+	function login() {
+    fetch("/login", { method: 'POST' })
+        .then(response => {
+            if (response.ok) {
+                window.location.href = '/dashboard'; // Redirect after login
+            } else {
+                alert("Login failed");
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert("❌ Error logging in");
+        });
+}
+
+  {% if role == 'admin' %}
+    <div id="userList" class="user-list">
+      <h3>All Users</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Username</th>
+            <th>Email</th>
+            <th>Balance</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for user in users %}
+            <tr>
+              <td>{{ user[1] }}</td>
+              <td>{{ user[2] }}</td>
+              <td>${{ user[3] }}</td>
+              <td><button onclick="editBalance('{{ user[1] }}')">Edit Balance</button></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+  {% elif role == 'manager' %}
+
+    <h3>Scan User QR Code</h3>
+    <label for="deductionAmount">Enter Deduction Amount:</label>
+    <input type="number" id="deductionAmount" min="1" required>
+   <button id="start-scan" onclick="startScanner()">Scan QR Code</button>
+<video id="qr-video" autoplay style="display: none;"></video>
+<canvas id="qr-canvas" hidden></canvas>
+<p id="scan-result">Waiting for scan...</p>
+
+
+    <script src="https://unpkg.com/jsqr"></script>
+    <script>
+      const video = document.getElementById('qr-video');
+      const canvas = document.getElementById('qr-canvas');
+      const context = canvas.getContext('2d');
+      const scanResult = document.getElementById('scan-result');
+      
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
+          .then(stream => { video.srcObject = stream; })
+          .catch(err => console.error("Camera access error:", err));
+      
+      video.onplay = () => {
+        requestAnimationFrame(scanQRCode);
+      };
+      
+     function startScanner() {
+    const video = document.getElementById("qr-video");
+    video.style.display = "block"; // Show video when scanning
+
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
+        .then(stream => { video.srcObject = stream; })
+        .catch(err => console.error("Camera access error:", err));
+
+    video.onplay = () => { requestAnimationFrame(scanQRCode); };
+}
+
+function scanQRCode() {
+    if (video.readyState === video.HAVE_ENOUGH_DATA) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        let imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+        let code = jsQR(imageData.data, imageData.width, imageData.height, {
+            inversionAttempts: "attemptBoth"
+        });
+
+        if (code) {
+            scanResult.innerText = "✅ QR Code Scanned: " + code.data;
+            deductBalance(code.data);
+
+            // Stop scanning after first successful scan
+            video.srcObject.getTracks().forEach(track => track.stop());
+            video.style.display = "none"; // Hide video after scanning
+        } else {
+            scanResult.innerText = "⏳ Searching for QR Code...";
+            requestAnimationFrame(scanQRCode);
+        }
+    }
+}
+
+
+function deductBalance(userId) {
+    console.log("📌 Scanned User ID (Before Fix):", userId);
+    let extractedUserId = userId.match(/\d+/) ? userId.match(/\d+/)[0] : null;
+    console.log("✅ Scanned User ID (After Fix):", extractedUserId);
+    if (!extractedUserId) {
+        alert("❌ Invalid QR Code.");
+        return;
+    }
+    let amount = document.getElementById("deductionAmount").value;
+    if (!amount || isNaN(amount) || amount <= 0) {
+        alert("⚠️ Please enter a valid deduction amount.");
+        return;
+    }
+    fetch('/deduct_balance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: extractedUserId, amount: amount })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            throw new Error(data.error);
+        }
+        alert("✅ " + data.message);
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert("❌ Error: " + error.message);
+    });
+}
+    </script>
+
+  {% else %}
+    <div id="userInfo" class="user-info">
+      <h3>Your Info</h3>
+      <p>Username: {{ user.username }}</p>
+<p>Email: {{ user.email }}</p>
+<p>Balance: ${{ user.balance }}</p>
+
+    </div>
+
+    <div id="qrCode">
+      <h3>Scan Your QR Code</h3>
+      <p>Use the QR code below to make payments at games and other locations.</p>
+      <img src="{{ qr_path }}" alt="User QR Code">
+    </div>
+  {% endif %}
+
+  <script>
+    function logout() {
+      fetch("/logout", { method: 'POST' })
+        .then(() => {
+          window.location.href = '/';
+        })
+        .catch((error) => {
+          alert("Error logging out");
+        });
+    }
+
+    function editBalance(username) {
+      window.location.href = `/edit_balance?username=${username}`;
+    }
+  </script>
+</body>
+</html>
